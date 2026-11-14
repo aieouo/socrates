@@ -21,7 +21,7 @@ type MessageCallbackWrapper = Callable[[MessageCallback, Context, Payload], Awai
 @asynccontextmanager
 async def transactor(context: Context) -> AsyncGenerator[None, None]:
     context.next_state()
-    Injection.set(context.limiter, context.username, context.state)
+    Injection.set(context.limiter, context.user, context.state)
     try:
         yield
     except Exception:
@@ -40,13 +40,12 @@ def branch_lock(branch: Branch) -> MessageCreatedDecorator:
                 return None
             if event.message.recipient.chat_type != ChatType.DIALOG:
                 return None
-            if context.full_name is None:
-                context.full_name = event.message.sender.full_name
 
             async with context.lock:
                 if context.step:
                     return None
 
+                context.full_name = event.message.sender.full_name
                 context.branch = branch
 
                 async with transactor(context):
@@ -64,8 +63,10 @@ def callback_lock(handler: MessageCallbackWrapper) -> MessageCallbackWrapper:
 
         async with context.lock:
             if payload.step != context.step:
-                logger.info("%s | %s | debounce", context.username, context.state)
+                logger.info("%s | %s | debounce", context.user, context.state)
                 return None
+
+            context.full_name = event.callback.user.full_name
 
             async with transactor(context):
                 return await handler(event, context, payload)

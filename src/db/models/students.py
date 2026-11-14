@@ -12,7 +12,12 @@ if TYPE_CHECKING:
 
 class Student(Base):
     __tablename__ = "students"
-    __table_args__ = (UniqueConstraint("name", "group_id"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "name",
+            "group_id",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(
         SmallInteger,

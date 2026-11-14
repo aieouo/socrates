@@ -1,21 +1,22 @@
 from asyncio import Lock, Semaphore
 from ssl import create_default_context
-from time import time_ns
+from time import perf_counter_ns, time_ns
 from uuid import uuid4
 
 from aiohttp import ClientSession, ClientTimeout, TCPConnector
 from sqlalchemy import Row
 
 from src.constants.texts import GigaChatText
-from src.settings import AUTHORIZATION_KEY, CERTIFICATE, logger
+from src.max.contexts import Context
+from src.settings import AUTHORIZATION_KEY, Paths, logger
 
 
 class GigaChat:
-    _SEMAPHORE = Semaphore(1)
-    _LOCK = Lock()
+    _semaphore = Semaphore(1)
+    _lock = Lock()
 
     _session = None
-    _SSL = create_default_context(cafile=CERTIFICATE)
+    _SSL = create_default_context(cafile=Paths.CERTIFICATE)
     _TIMEOUT = ClientTimeout(total=30, connect=10, sock_read=10)
 
     _access_token: str | None = None
@@ -37,7 +38,7 @@ class GigaChat:
 
     @classmethod
     async def _get_access_token(cls) -> str:
-        async with cls._LOCK:
+        async with cls._lock:
             if cls._access_token and time_ns() < cls._expires_at:
                 return cls._access_token
 
@@ -64,8 +65,16 @@ class GigaChat:
             return data["access_token"]
 
     @classmethod
-    async def ask(cls, user: str, pairs: list[Row]) -> str:
-        async with cls._SEMAPHORE:
+    async def ask(
+        cls,
+        context: Context,
+        mistakes: list[Row],
+        system_text: str = GigaChatText.PROMPT,
+        temperature: float = 0.1,
+    ) -> str:
+        t1 = perf_counter_ns()
+        async with cls._semaphore:
+            t2 = perf_counter_ns()
             try:
                 access_token = await cls._get_access_token()
 
@@ -85,7 +94,7 @@ class GigaChat:
                                 "role": "system",
                                 "content": [
                                     {
-                                        "text": GigaChatText.PROMPT,
+                                        "text": system_text,
                                     },
                                 ],
                             },
@@ -93,14 +102,13 @@ class GigaChat:
                                 "role": "user",
                                 "content": [
                                     {
-                                        "text": f"{pairs}",
+                                        "text": f"{context.test}, {mistakes}",
                                     },
                                 ],
                             },
                         ],
                         "model_options": {
-                            "temperature": 0.1,
-                            "top_p": 0.9,
+                            "temperature": temperature,
                             "max_tokens": 1000,
                         },
                     },
@@ -109,16 +117,17 @@ class GigaChat:
                     data = await response.json()
 
                 logger.info(
-                    "%s | reason=%s | input=%s | cached=%s | output=%s",
-                    user,
+                    "%s | semaphore=%s | reason=%s | input=%s cached=%s output=%s",
+                    context.user,
+                    (t2 - t1) // 1_000_000,
                     data["finish_reason"],
                     data["usage"]["input_tokens"],
                     data["usage"]["input_tokens_details"]["cached_tokens"],
                     data["usage"]["output_tokens"],
                 )
 
-                return data["messages"][0]["content"][0]["text"]
+                return data["messages"][0]["content"][0]["text"] if data["finish_reason"] in {"stop", "length"} else ""
 
             except Exception as error:
-                logger.info("%s\n%s", user, error)
-                return "Не удалось сформировать рекомендации"
+                logger.info("%s\n%s", context.user, error)
+                return ""

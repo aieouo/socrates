@@ -9,7 +9,7 @@ from sqlalchemy import Row
 
 class Payload(CallbackPayload):
     step: int
-    id: int
+    index: int
     value: str
 
 
@@ -23,13 +23,13 @@ class ButtonFactory:
         return attachment.as_markup()
 
     @classmethod
-    def _pack(cls, step: int, i: int, value: str) -> str:
-        return Payload(step=step, id=i, value=value).pack()
+    def _pack(cls, step: int, index: int, value: str) -> str:
+        return Payload(step=step, index=index, value=value).pack()
 
     @classmethod
     @lru_cache(maxsize=None)
-    def _to_button(cls, step: int, i: int, value: str) -> CallbackButton:
-        return CallbackButton(text=value, payload=cls._pack(step, i, value))
+    def _to_button(cls, step: int, index: int, value: str) -> CallbackButton:
+        return CallbackButton(text=value, payload=cls._pack(step, index, value))
 
     @classmethod
     def from_rows(cls, step: int, rows: list[Row], sizes: int) -> AttachmentButton:
@@ -38,4 +38,4 @@ class ButtonFactory:
     @classmethod
     @lru_cache(maxsize=32)
     def from_items(cls, step: int, items: tuple[str, ...], sizes: int) -> AttachmentButton:
-        return cls._create([cls._to_button(step, i, item) for i, item in enumerate(items)], sizes)
+        return cls._create([cls._to_button(step, index, item) for index, item in enumerate(items)], sizes)

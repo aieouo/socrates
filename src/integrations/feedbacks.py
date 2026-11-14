@@ -2,7 +2,7 @@ from asyncio import Lock
 
 from aiofiles import open
 
-from src.settings import FEEDBACKS
+from src.settings import Paths
 
 
 class Feedback:
@@ -10,8 +10,8 @@ class Feedback:
 
     @classmethod
     async def save(cls, text: str) -> None:
-        FEEDBACKS.parent.mkdir(parents=True, exist_ok=True)
+        Paths.FEEDBACKS.parent.mkdir(parents=True, exist_ok=True)
 
         async with cls._lock:
-            async with open(FEEDBACKS, "a", encoding="utf-8") as file:
+            async with open(Paths.FEEDBACKS, "a", encoding="utf-8") as file:
                 await file.write(f"{text}\n\n")

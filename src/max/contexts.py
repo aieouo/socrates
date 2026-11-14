@@ -66,7 +66,7 @@ class Context(MemoryContext):
         return self._context
 
     @property
-    def username(self) -> str:
+    def user(self) -> str:
         return f"{self.user_id} {self.full_name}"
 
     @property
@@ -75,7 +75,7 @@ class Context(MemoryContext):
 
     @property
     def state(self) -> str | None:
-        return f"{self.branch.__name__}{self.step}" if self.step else None
+        return self.branch and f"{self.branch.__name__}{self.step}"
 
     def next_state(self) -> None:
         self.step += 1

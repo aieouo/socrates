@@ -4,12 +4,12 @@ from io import BytesIO
 from maxapi.types import InputMediaBuffer
 from PIL import Image, ImageDraw, ImageFont
 
-from src.settings import FONT
+from src.settings import Paths
 
 
 class ImageFactory:
     _BACKGROUND = Image.new("1", (1000, 1000), 1)
-    _FONT = ImageFont.truetype(FONT, 38)
+    _FONT = ImageFont.truetype(Paths.FONT, 38)
 
     EXECUTOR = None
 

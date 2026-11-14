@@ -12,7 +12,12 @@ if TYPE_CHECKING:
 
 class Task(Base):
     __tablename__ = "tasks"
-    __table_args__ = (UniqueConstraint("question", "test_id"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "question",
+            "test_id",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(
         SmallInteger,

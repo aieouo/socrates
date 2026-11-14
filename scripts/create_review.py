@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from src.settings import BASE_DIR
+from src.settings import Paths
 
 
 IGNORE = {".git", ".idea", ".ruff_cache", ".venv", "__pycache__", "backups"}
@@ -25,8 +25,8 @@ def walk(path: Path, prefix: str = "") -> None:
 
 
 if __name__ == "__main__":
-    root = BASE_DIR
+    root = Paths.BASE_DIR
     walk(root)
 
-    with open("all_in_one.txt", "w", encoding="utf-8") as file:
+    with open(f"all_in_one_{root.name}.txt", "w", encoding="utf-8") as file:
         file.write("\n".join([*tree, "", *files]))

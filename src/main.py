@@ -36,8 +36,9 @@ dp = Dispatcher(storage=Context)
 @dp.message_created(None, Command("admin"))
 @branch_lock(Admin)
 async def admin_selects_group(event: MessageCreated, context: Context) -> None:
+    logger.info("%s | is_admin=%s", context.user, context.is_admin)
+
     if not context.is_admin:
-        logger.info("%s | is_admin=%s", context.username, context.is_admin)
         return
 
     groups = await get_rows(AdminStatement.GET_GROUPS)
@@ -50,7 +51,7 @@ async def admin_selects_group(event: MessageCreated, context: Context) -> None:
 @dp.message_callback(Admin.State1, Payload.filter())
 @callback_lock
 async def admin_selects_test(event: MessageCallback, context: Context, payload: Payload) -> None:
-    context.group_id, context.group = payload.id, payload.value
+    context.group_id, context.group = payload.index, payload.value
 
     tests = await get_rows(AdminStatement.GET_TESTS, context.group_id)
     attachments = AttachmentFactory.from_rows(context.step, tests)
@@ -61,7 +62,7 @@ async def admin_selects_test(event: MessageCallback, context: Context, payload: 
 @dp.message_callback(Admin.State2, Payload.filter())
 @callback_lock
 async def admin_confirms_selection(event: MessageCallback, context: Context, payload: Payload) -> None:
-    context.test_id, context.test = payload.id, payload.value
+    context.test_id, context.test = payload.index, payload.value
 
     text = AdminText.CONFIRM.format(context.group, context.test)
 
@@ -73,7 +74,7 @@ async def admin_confirms_selection(event: MessageCallback, context: Context, pay
 @dp.message_callback(Admin.State3, Payload.filter())
 @callback_lock
 async def admin_gets_results(event: MessageCallback, context: Context, payload: Payload) -> None:
-    if payload.id:
+    if payload.index:
         await event.edit(CommonText.STOP, [])
         await clear(context)
         return
@@ -85,9 +86,13 @@ async def admin_gets_results(event: MessageCallback, context: Context, payload: 
     texts = [f"Группа: {context.group}", f"Тест: {context.test}\n"]
     for r in results:
         if r.user_id:
+            texts.append(f"{r.name}: {r.points} из 30")
+            texts.append(f"{r.user_id} {r.full_name}")
+            texts.append(f"{r.finished_at.strftime('%Y-%m-%d %H:%M')}")
+
             mistakes = " ".join(a for a in r.answers.split() if not a.endswith("1"))
             mistakes = mistakes + "\n" if mistakes else ""
-            texts.append(f"{r.name}: {r.points} из 30\n{r.user_id} {r.full_name}\n{mistakes}")
+            texts.append(mistakes)
         else:
             texts.append(f"{r.name}\n")
 
@@ -112,7 +117,7 @@ async def user_selects_group(event: MessageCreated, context: Context) -> None:
 @dp.message_callback(User.State1, Payload.filter())
 @callback_lock
 async def user_selects_student(event: MessageCallback, context: Context, payload: Payload) -> None:
-    context.group_id, context.group = payload.id, payload.value
+    context.group_id, context.group = payload.index, payload.value
 
     students = await get_rows(UserStatement.GET_STUDENTS, context.group_id)
     attachments = AttachmentFactory.from_rows(context.step, students)
@@ -123,7 +128,7 @@ async def user_selects_student(event: MessageCallback, context: Context, payload
 @dp.message_callback(User.State2, Payload.filter())
 @callback_lock
 async def user_selects_test(event: MessageCallback, context: Context, payload: Payload) -> None:
-    context.student_id, context.student = payload.id, payload.value
+    context.student_id, context.student = payload.index, payload.value
 
     tests = await get_rows(UserStatement.GET_TESTS)
     attachments = AttachmentFactory.from_rows(context.step, tests)
@@ -134,7 +139,7 @@ async def user_selects_test(event: MessageCallback, context: Context, payload: P
 @dp.message_callback(User.State3, Payload.filter())
 @callback_lock
 async def user_confirms_selection(event: MessageCallback, context: Context, payload: Payload) -> None:
-    context.test_id, context.test = payload.id, payload.value
+    context.test_id, context.test = payload.index, payload.value
 
     text = UserText.CONFIRM.format(context.group, context.student, context.test)
 
@@ -146,7 +151,7 @@ async def user_confirms_selection(event: MessageCallback, context: Context, payl
 @dp.message_callback(User.State4, Payload.filter())
 @callback_lock
 async def user_gets_first_question(event: MessageCallback, context: Context, payload: Payload) -> None:
-    if payload.id:
+    if payload.index:
         await event.edit(CommonText.STOP, [])
         await clear(context)
         return
@@ -187,16 +192,16 @@ async def user_gets_first_question(event: MessageCallback, context: Context, pay
 async def user_gets_next_question(event: MessageCallback, context: Context, payload: Payload) -> None:
     await event.edit(CommonText.PROCESSING, [])
 
-    context.answers.append(context.options.popleft()[payload.id])
+    context.answers.append(context.options.popleft()[payload.index])
 
     if not context.texts:
         finished_at = datetime.now()
         answers = sorted(context.answers, key=lambda a: (len(a), a))
         points = sum(a.endswith("1") for a in answers)
 
-        summary = await get_rows(UserStatement.GET_SUMMARY, answers)
+        mistakes = await get_rows(UserStatement.GET_MISTAKES, answers)
 
-        feedback = await GigaChat.ask(context.username, summary)
+        feedback = await GigaChat.ask(context, mistakes) if mistakes else ""
 
         await add_result(
             event.callback.user.user_id,
@@ -213,7 +218,7 @@ async def user_gets_next_question(event: MessageCallback, context: Context, payl
             context.group,
             context.student,
             context.test,
-            finished_at.strftime("%H:%M %d.%m.%Y"),
+            finished_at.strftime("%Y-%m-%d %H:%M"),
             points,
             feedback,
         )
@@ -241,7 +246,7 @@ async def stop(_, context: Context) -> None:
 
 
 async def clear(context: Context) -> None:
-    logger.info("%s | %s | clear", context.username, context.state)
+    logger.info("%s | %s | clear", context.user, context.state)
     await context.clear()
 
 

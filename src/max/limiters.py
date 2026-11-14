@@ -12,23 +12,23 @@ from src.settings import logger
 
 class Injection:
     _limiter = ContextVar[AsyncLimiter | None]("_limiter", default=None)
-    _username = ContextVar[str | None]("_username", default=None)
+    _user = ContextVar[str | None]("_user", default=None)
     _state = ContextVar[str | None]("_state", default=None)
 
     @classmethod
     def set(cls, limiter: AsyncLimiter | None, user: str | None, state: str | None) -> None:
         cls._limiter.set(limiter)
-        cls._username.set(user)
+        cls._user.set(user)
         cls._state.set(state)
 
     @classmethod
     def get(cls) -> tuple[AsyncLimiter | None, str | None, str | None]:
-        return cls._limiter.get(), cls._username.get(), cls._state.get()
+        return cls._limiter.get(), cls._user.get(), cls._state.get()
 
     @classmethod
     def reset(cls):
         cls._limiter.set(None)
-        cls._username.set(None)
+        cls._user.set(None)
         cls._state.set(None)
 
 
@@ -36,7 +36,7 @@ _request = ClientSession._request
 
 
 class Limiter:
-    _2RPS = {
+    USER = {
         "POST /messages",
         "PUT /messages",
         "DELETE /messages",
@@ -58,9 +58,9 @@ class Limiter:
         route = f"{method} {URL(str_or_url).path}"
         status = None
 
-        limiter, username, state = Injection.get()
+        limiter, user, state = Injection.get()
 
-        user_limiter = limiter if limiter is not None and route in Limiter._2RPS else nullcontext()
+        user_limiter = limiter if limiter is not None and route in Limiter.USER else nullcontext()
         total_limiter = nullcontext() if route in Limiter.NOT_IN else Limiter.total
 
         try:
@@ -74,8 +74,8 @@ class Limiter:
         finally:
             t4 = perf_counter_ns()
             logger.info(
-                "%s | %s | %s | 2rps=%s | 30rps=%s | request=%s | total=%s | %s",
-                username,
+                "%s | %s | %s | limiter=%s %s | request=%s | total=%s | %s",
+                user,
                 state,
                 route,
                 (t2 - t1) // 1_000_000,

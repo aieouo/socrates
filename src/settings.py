@@ -5,21 +5,22 @@ from pathlib import Path
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+class Paths:
+    BASE_DIR = Path(__file__).resolve().parent.parent
 
-MAXAPI_DIR = BASE_DIR / ".venv" / "Lib" / "site-packages" / "maxapi"
+    MAXAPI_DIR = BASE_DIR / ".venv" / "Lib" / "site-packages" / "maxapi"
 
-TEST_DIR = BASE_DIR / "backups" / "tests"
-FEEDBACKS = BASE_DIR / "backups" / "feedbacks.txt"
+    TEST_DIR = BASE_DIR / "backups" / "tests"
+    FEEDBACKS = BASE_DIR / "backups" / "feedbacks.txt"
 
-SECRET_DIR = Path(getenv("SECRETS") or BASE_DIR / "secrets")
+    SECRET_DIR = Path(getenv("SECRETS") or BASE_DIR / "secrets")
 
-FONT = BASE_DIR / "src" / "assets" / "consola.ttf"
-CERTIFICATE = BASE_DIR / "src" / "assets" / "Russian_Trusted_Root_CA.cer"
+    FONT = BASE_DIR / "src" / "assets" / "consola.ttf"
+    CERTIFICATE = BASE_DIR / "src" / "assets" / "Russian_Trusted_Root_CA.cer"
 
 
 def read_secret(secret: str) -> str:
-    with open(SECRET_DIR / secret, encoding="utf-8") as file:
+    with open(Paths.SECRET_DIR / secret, encoding="utf-8") as file:
         return file.read().strip()
 
 
@@ -44,6 +45,6 @@ ADMINS = {int(user_id) for user_id in read_secret("bot_admins").split(",")}
 
 AUTHORIZATION_KEY = read_secret("gigachat_token")
 
-basicConfig(format="%(asctime)s | %(message)s", datefmt="%H:%M:%S %d.%m", level=INFO)
+basicConfig(format="%(asctime)s | %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=INFO)
 
 logger = getLogger()

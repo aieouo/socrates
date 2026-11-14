@@ -4,12 +4,12 @@ from json import load
 from sqlalchemy import select
 
 from src.db.models import Task, Test
-from src.settings import ASYNC_SESSION, TEST_DIR
+from src.settings import ASYNC_SESSION, Paths
 
 
 async def add_tests() -> None:
     async with ASYNC_SESSION.begin() as session:
-        for path in sorted(TEST_DIR.glob("*.json"), key=lambda p: p.stem):
+        for path in sorted(Paths.TEST_DIR.glob("*.json"), key=lambda p: p.stem):
             _, name = path.stem.split("_", 1)
 
             stmt = select(Test).where(Test.name == name)

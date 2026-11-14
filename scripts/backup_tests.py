@@ -5,16 +5,16 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from src.db.models import Test
-from src.settings import ASYNC_SESSION, TEST_DIR
+from src.settings import ASYNC_SESSION, Paths
 
 
 def _create(name: str, data: dict[int, dict[str, str]]) -> None:
-    with open(TEST_DIR / name, "w", encoding="utf-8") as file:
+    with open(Paths.TEST_DIR / name, "w", encoding="utf-8") as file:
         file.write(dumps(data, ensure_ascii=False, indent=2))
 
 
 async def backup_tests() -> None:
-    TEST_DIR.mkdir(parents=True, exist_ok=True)
+    Paths.TEST_DIR.mkdir(parents=True, exist_ok=True)
 
     async with ASYNC_SESSION() as session:
         stmt = select(Test).options(selectinload(Test.questions)).order_by(Test.id)
