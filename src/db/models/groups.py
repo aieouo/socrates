@@ -27,4 +27,5 @@ class Group(Base):
     students: Mapped[list["Student"]] = relationship(
         back_populates="group",
         default_factory=list,
+        passive_deletes=True,
     )

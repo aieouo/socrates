@@ -12,31 +12,25 @@ from src.settings import logger
 
 class Injection:
     _limiter = ContextVar[AsyncLimiter | None]("_limiter", default=None)
-    _user = ContextVar[str | None]("_user", default=None)
-    _state = ContextVar[str | None]("_state", default=None)
 
     @classmethod
-    def set(cls, limiter: AsyncLimiter | None, user: str | None, state: str | None) -> None:
+    def set(cls, limiter: AsyncLimiter | None) -> None:
         cls._limiter.set(limiter)
-        cls._user.set(user)
-        cls._state.set(state)
 
     @classmethod
-    def get(cls) -> tuple[AsyncLimiter | None, str | None, str | None]:
-        return cls._limiter.get(), cls._user.get(), cls._state.get()
+    def get(cls) -> AsyncLimiter | None:
+        return cls._limiter.get()
 
     @classmethod
     def reset(cls):
         cls._limiter.set(None)
-        cls._user.set(None)
-        cls._state.set(None)
 
 
 _request = ClientSession._request
 
 
 class Limiter:
-    USER = {
+    _2RPS = {
         "POST /messages",
         "PUT /messages",
         "DELETE /messages",
@@ -58,9 +52,9 @@ class Limiter:
         route = f"{method} {URL(str_or_url).path}"
         status = None
 
-        limiter, user, state = Injection.get()
+        limiter = Injection.get()
 
-        user_limiter = limiter if limiter is not None and route in Limiter.USER else nullcontext()
+        user_limiter = limiter if limiter and route in Limiter._2RPS else nullcontext()
         total_limiter = nullcontext() if route in Limiter.NOT_IN else Limiter.total
 
         try:
@@ -74,14 +68,11 @@ class Limiter:
         finally:
             t4 = perf_counter_ns()
             logger.info(
-                "%s | %s | %s | limiter=%s %s | request=%s | total=%s | %s",
-                user,
-                state,
+                "%s | limiter=%s %s | request=%s | status=%s",
                 route,
                 (t2 - t1) // 1_000_000,
                 (t3 - t2) // 1_000_000,
                 (t4 - t3) // 1_000_000,
-                (t4 - t1) // 1_000_000,
                 status,
             )
 

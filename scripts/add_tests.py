@@ -14,9 +14,9 @@ async def add_tests() -> None:
 
             stmt = select(Test).where(Test.name == name)
             result = await session.execute(stmt)
-            test = result.scalar_one_or_none()
+            row = result.scalar_one_or_none()
 
-            if test is None:
+            if row is None:
                 test = Test(name=name)
                 session.add(test)
                 await session.flush()

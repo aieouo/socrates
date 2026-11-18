@@ -201,7 +201,7 @@ async def user_gets_next_question(event: MessageCallback, context: Context, payl
 
         mistakes = await get_rows(UserStatement.GET_MISTAKES, answers)
 
-        feedback = await GigaChat.ask(context, mistakes) if mistakes else ""
+        feedback = await GigaChat.ask(context.test, mistakes) if mistakes else ""
 
         await add_result(
             event.callback.user.user_id,

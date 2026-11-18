@@ -27,8 +27,8 @@ services:
     container_name: bot
     build: .
     environment:
-      DB_HOST: db
-      SECRETS: /run/secrets
+      db_host: db
+      SECRET_DIR: /run/secrets
     secrets:
       - bot_admins
       - bot_token

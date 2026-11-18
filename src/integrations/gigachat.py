@@ -7,7 +7,6 @@ from aiohttp import ClientSession, ClientTimeout, TCPConnector
 from sqlalchemy import Row
 
 from src.constants.texts import GigaChatText
-from src.max.contexts import Context
 from src.settings import AUTHORIZATION_KEY, Paths, logger
 
 
@@ -67,7 +66,7 @@ class GigaChat:
     @classmethod
     async def ask(
         cls,
-        context: Context,
+        test: str,
         mistakes: list[Row],
         system_text: str = GigaChatText.PROMPT,
         temperature: float = 0.1,
@@ -102,7 +101,7 @@ class GigaChat:
                                 "role": "user",
                                 "content": [
                                     {
-                                        "text": f"{context.test}, {mistakes}",
+                                        "text": f"{test}, {mistakes}",
                                     },
                                 ],
                             },
@@ -117,8 +116,7 @@ class GigaChat:
                     data = await response.json()
 
                 logger.info(
-                    "%s | semaphore=%s | reason=%s | input=%s cached=%s output=%s",
-                    context.user,
+                    "semaphore=%s | reason=%s | input=%s | cached=%s | output=%s",
                     (t2 - t1) // 1_000_000,
                     data["finish_reason"],
                     data["usage"]["input_tokens"],
@@ -129,5 +127,5 @@ class GigaChat:
                 return data["messages"][0]["content"][0]["text"] if data["finish_reason"] in {"stop", "length"} else ""
 
             except Exception as error:
-                logger.info("%s\n%s", context.user, error)
+                logger.info("%s", error)
                 return ""

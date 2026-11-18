@@ -2,6 +2,7 @@ from logging import INFO, basicConfig, getLogger
 from os import getenv
 from pathlib import Path
 
+from sqlalchemy import URL
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 
@@ -12,8 +13,9 @@ class Paths:
 
     TEST_DIR = BASE_DIR / "backups" / "tests"
     FEEDBACKS = BASE_DIR / "backups" / "feedbacks.txt"
+    GROUPS = BASE_DIR / "backups" / "groups.json"
 
-    SECRET_DIR = Path(getenv("SECRETS") or BASE_DIR / "secrets")
+    SECRET_DIR = Path(getenv("SECRET_DIR") or BASE_DIR / "secrets")
 
     FONT = BASE_DIR / "src" / "assets" / "consola.ttf"
     CERTIFICATE = BASE_DIR / "src" / "assets" / "Russian_Trusted_Root_CA.cer"
@@ -24,16 +26,18 @@ def read_secret(secret: str) -> str:
         return file.read().strip()
 
 
-DB_PASS = read_secret("db_password")
-DB_HOST = getenv("DB_HOST", "localhost")
-
-DSN = f"postgresql+asyncpg://postgres:{DB_PASS}@{DB_HOST}:5432/postgres"
-
 ASYNC_ENGINE = create_async_engine(
-    DSN,
-    pool_size=20,
-    max_overflow=20,
+    URL.create(
+        "postgresql+asyncpg",
+        "postgres",
+        read_secret("db_password"),
+        getenv("db_host", "localhost"),
+        5432,
+        "postgres",
+    ),
+    max_overflow=30,
     pool_pre_ping=True,
+    pool_size=10,
     pool_recycle=3600,
 )
 

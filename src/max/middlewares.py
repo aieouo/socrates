@@ -21,7 +21,7 @@ type MessageCallbackWrapper = Callable[[MessageCallback, Context, Payload], Awai
 @asynccontextmanager
 async def transactor(context: Context) -> AsyncGenerator[None, None]:
     context.next_state()
-    Injection.set(context.limiter, context.user, context.state)
+    Injection.set(context.limiter)
     try:
         yield
     except Exception:
@@ -48,6 +48,8 @@ def branch_lock(branch: Branch) -> MessageCreatedDecorator:
                 context.full_name = event.message.sender.full_name
                 context.branch = branch
 
+                logger.info("%s | %s", context.user, context.state)
+
                 async with transactor(context):
                     return await handler(event, context)
 
@@ -67,6 +69,8 @@ def callback_lock(handler: MessageCallbackWrapper) -> MessageCallbackWrapper:
                 return None
 
             context.full_name = event.callback.user.full_name
+
+            logger.info("%s | %s", context.user, context.state)
 
             async with transactor(context):
                 return await handler(event, context, payload)

@@ -1,6 +1,6 @@
 [project]
 name = "socrates"
-version = "0.4.1"
+version = "0.4.2"
 description = "Add your description here"
 requires-python = ">=3.14"
 dependencies = [
@@ -11,7 +11,7 @@ dependencies = [
     "asyncpg>=0.32.0",
     "maxapi>=1.2.4",
     "pillow>=13.0.0",
-    "sqlalchemy[asyncio]>=2.1.8",
+    "sqlalchemy[asyncio]>=2.1.9",
     "yarl>=1.25.1",
 ]
 
