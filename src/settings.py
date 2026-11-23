@@ -12,7 +12,6 @@ class Paths:
     MAXAPI_DIR = BASE_DIR / ".venv" / "Lib" / "site-packages" / "maxapi"
 
     TEST_DIR = BASE_DIR / "backups" / "tests"
-    FEEDBACKS = BASE_DIR / "backups" / "feedbacks.txt"
     GROUPS = BASE_DIR / "backups" / "groups.json"
 
     SECRET_DIR = Path(getenv("SECRET_DIR") or BASE_DIR / "secrets")
@@ -46,6 +45,8 @@ ASYNC_SESSION = async_sessionmaker(ASYNC_ENGINE)
 TOKEN = read_secret("bot_token")
 
 ADMINS = {int(user_id) for user_id in read_secret("bot_admins").split(",")}
+
+CHAT_ID = int(read_secret("bot_chat_id"))
 
 AUTHORIZATION_KEY = read_secret("gigachat_token")
 

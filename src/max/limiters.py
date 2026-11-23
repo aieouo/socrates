@@ -30,7 +30,7 @@ _request = ClientSession._request
 
 
 class Limiter:
-    _2RPS = {
+    USER = {
         "POST /messages",
         "PUT /messages",
         "DELETE /messages",
@@ -54,7 +54,7 @@ class Limiter:
 
         limiter = Injection.get()
 
-        user_limiter = limiter if limiter and route in Limiter._2RPS else nullcontext()
+        user_limiter = limiter if limiter and route in Limiter.USER else nullcontext()
         total_limiter = nullcontext() if route in Limiter.NOT_IN else Limiter.total
 
         try:
@@ -68,9 +68,9 @@ class Limiter:
         finally:
             t4 = perf_counter_ns()
             logger.info(
-                "%s | limiter=%s %s | request=%s | status=%s",
+                "%s | limiter: user=%s total=%s | request=%s | status=%s",
                 route,
-                (t2 - t1) // 1_000_000,
+                limiter and (t2 - t1) // 1_000_000,
                 (t3 - t2) // 1_000_000,
                 (t4 - t3) // 1_000_000,
                 status,

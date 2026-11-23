@@ -64,13 +64,7 @@ class GigaChat:
             return data["access_token"]
 
     @classmethod
-    async def ask(
-        cls,
-        test: str,
-        mistakes: list[Row],
-        system_text: str = GigaChatText.PROMPT,
-        temperature: float = 0.1,
-    ) -> str:
+    async def ask(cls, test: str, mistakes: list[Row], system_text: str = GigaChatText.PROMPT) -> str:
         t1 = perf_counter_ns()
         async with cls._semaphore:
             t2 = perf_counter_ns()
@@ -107,7 +101,7 @@ class GigaChat:
                             },
                         ],
                         "model_options": {
-                            "temperature": temperature,
+                            "temperature": 0.1,
                             "max_tokens": 1000,
                         },
                     },

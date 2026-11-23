@@ -12,10 +12,9 @@ from maxapi.types import InputMediaBuffer, MessageCallback, MessageCreated
 from src.constants.permutations import PERMUTATIONS
 from src.constants.progress_bars import PROGRESS_BARS
 from src.constants.statements import AdminStatement, UserStatement
-from src.constants.texts import AdminText, CommonText, UserText
+from src.constants.texts import AdminSelectionText, CommonText, UserSelectionText
 from src.db.queries.results import add_result
 from src.db.queries.rows import get_rows
-from src.integrations.feedbacks import Feedback
 from src.integrations.gigachat import GigaChat
 from src.max.contexts import Context
 from src.max.limiters import Limiter
@@ -25,7 +24,7 @@ from src.messages.attachments import AttachmentFactory
 from src.messages.buttons import Payload
 from src.messages.images import ImageFactory
 from src.messages.texts import TextFactory
-from src.settings import TOKEN, logger
+from src.settings import CHAT_ID, TOKEN, logger
 
 
 Limiter.activate()
@@ -44,8 +43,8 @@ async def admin_selects_group(event: MessageCreated, context: Context) -> None:
     groups = await get_rows(AdminStatement.GET_GROUPS)
     attachments = AttachmentFactory.from_rows(context.step, groups)
 
-    message = await event.message.answer(AdminText.SELECT_GROUP, attachments)
-    context.message_id = message and message.message.body and message.message.body.mid
+    message = await event.message.answer(AdminSelectionText.GROUP, attachments)
+    context.user_mid = message and message.message.body and message.message.body.mid
 
 
 @dp.message_callback(Admin.State1, Payload.filter())
@@ -56,7 +55,7 @@ async def admin_selects_test(event: MessageCallback, context: Context, payload: 
     tests = await get_rows(AdminStatement.GET_TESTS, context.group_id)
     attachments = AttachmentFactory.from_rows(context.step, tests)
 
-    await event.edit(AdminText.SELECT_TEST, attachments)
+    await event.edit(AdminSelectionText.TEST, attachments)
 
 
 @dp.message_callback(Admin.State2, Payload.filter())
@@ -64,7 +63,7 @@ async def admin_selects_test(event: MessageCallback, context: Context, payload: 
 async def admin_confirms_selection(event: MessageCallback, context: Context, payload: Payload) -> None:
     context.test_id, context.test = payload.index, payload.value
 
-    text = AdminText.CONFIRM.format(context.group, context.test)
+    text = AdminSelectionText.CONFIRMATION.format(context.group, context.test)
 
     attachments = AttachmentFactory.for_confirmation(context.step)
 
@@ -107,11 +106,14 @@ async def admin_gets_results(event: MessageCallback, context: Context, payload: 
 @dp.message_created(None, CommandStart())
 @branch_lock(User)
 async def user_selects_group(event: MessageCreated, context: Context) -> None:
+    message = await bot.send_message(CHAT_ID, text=context.login)
+    context.admin_mid = message and message.message.body and message.message.body.mid
+
     groups = await get_rows(UserStatement.GET_GROUPS)
     attachments = AttachmentFactory.from_rows(context.step, groups)
 
-    message = await event.message.answer(UserText.SELECT_GROUP, attachments)
-    context.message_id = message and message.message.body and message.message.body.mid
+    message = await event.message.answer(UserSelectionText.GROUP, attachments)
+    context.user_mid = message and message.message.body and message.message.body.mid
 
 
 @dp.message_callback(User.State1, Payload.filter())
@@ -122,7 +124,7 @@ async def user_selects_student(event: MessageCallback, context: Context, payload
     students = await get_rows(UserStatement.GET_STUDENTS, context.group_id)
     attachments = AttachmentFactory.from_rows(context.step, students)
 
-    await event.edit(UserText.SELECT_STUDENT, attachments)
+    await event.edit(UserSelectionText.STUDENT, attachments)
 
 
 @dp.message_callback(User.State2, Payload.filter())
@@ -133,7 +135,7 @@ async def user_selects_test(event: MessageCallback, context: Context, payload: P
     tests = await get_rows(UserStatement.GET_TESTS)
     attachments = AttachmentFactory.from_rows(context.step, tests)
 
-    await event.edit(UserText.SELECT_TEST, attachments)
+    await event.edit(UserSelectionText.TEST, attachments)
 
 
 @dp.message_callback(User.State3, Payload.filter())
@@ -141,7 +143,7 @@ async def user_selects_test(event: MessageCallback, context: Context, payload: P
 async def user_confirms_selection(event: MessageCallback, context: Context, payload: Payload) -> None:
     context.test_id, context.test = payload.index, payload.value
 
-    text = UserText.CONFIRM.format(context.group, context.student, context.test)
+    text = UserSelectionText.CONFIRMATION.format(context.group, context.student, context.test)
 
     attachments = AttachmentFactory.for_confirmation(context.step)
 
@@ -192,16 +194,17 @@ async def user_gets_first_question(event: MessageCallback, context: Context, pay
 async def user_gets_next_question(event: MessageCallback, context: Context, payload: Payload) -> None:
     await event.edit(CommonText.PROCESSING, [])
 
-    context.answers.append(context.options.popleft()[payload.index])
+    answer = context.options.popleft()[payload.index]
+    context.answers.append(answer)
+    context.points += answer.endswith("1")
 
     if not context.texts:
-        finished_at = datetime.now()
+        context.is_finished = True
         answers = sorted(context.answers, key=lambda a: (len(a), a))
-        points = sum(a.endswith("1") for a in answers)
 
-        mistakes = await get_rows(UserStatement.GET_MISTAKES, answers)
-
-        feedback = await GigaChat.ask(context.test, mistakes) if mistakes else ""
+        if context.points != 30:
+            mistakes = await get_rows(UserStatement.GET_MISTAKES, answers)
+            context.feedback = await GigaChat.ask(context.test, mistakes)
 
         await add_result(
             event.callback.user.user_id,
@@ -209,23 +212,12 @@ async def user_gets_next_question(event: MessageCallback, context: Context, payl
             context.group_id,
             context.student_id,
             context.test_id,
-            finished_at,
+            datetime.now(),
             " ".join(answers),
-            points,
+            context.points,
         )
 
-        text = UserText.RESULT.format(
-            context.group,
-            context.student,
-            context.test,
-            finished_at.strftime("%Y-%m-%d %H:%M"),
-            points,
-            feedback,
-        )
-
-        await event.edit(text, [])
-
-        await Feedback.save(text)
+        await event.edit(context.result, [])
 
         await clear(context)
         return
@@ -239,14 +231,18 @@ async def user_gets_next_question(event: MessageCallback, context: Context, payl
 
 @dp.message_created(Command("stop"))
 async def stop(_, context: Context) -> None:
-    if context.message_id is not None:
-        await bot.edit_message(context.message_id, CommonText.STOP, [])
+    if context.user_mid:
+        await bot.edit_message(context.user_mid, CommonText.STOP, [])
 
     await clear(context)
 
 
 async def clear(context: Context) -> None:
-    logger.info("%s | %s | clear", context.user, context.state)
+    logger.info("%s | %s | clear", context.user, context.stage)
+
+    if context.admin_mid:
+        await bot.edit_message(context.admin_mid, context.logout)
+
     await context.clear()
 
 

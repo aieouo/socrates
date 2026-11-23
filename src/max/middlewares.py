@@ -48,7 +48,7 @@ def branch_lock(branch: Branch) -> MessageCreatedDecorator:
                 context.full_name = event.message.sender.full_name
                 context.branch = branch
 
-                logger.info("%s | %s", context.user, context.state)
+                logger.info("%s | %s", context.user, context.stage)
 
                 async with transactor(context):
                     return await handler(event, context)
@@ -65,12 +65,12 @@ def callback_lock(handler: MessageCallbackWrapper) -> MessageCallbackWrapper:
 
         async with context.lock:
             if payload.step != context.step:
-                logger.info("%s | %s | debounce", context.user, context.state)
+                logger.info("%s | %s | debounce", context.user, context.stage)
                 return None
 
             context.full_name = event.callback.user.full_name
 
-            logger.info("%s | %s", context.user, context.state)
+            logger.info("%s | %s", context.user, context.stage)
 
             async with transactor(context):
                 return await handler(event, context, payload)

@@ -1,6 +1,7 @@
 from asyncio import Lock
 from collections import deque
 from collections.abc import Callable
+from datetime import datetime
 from typing import Any, Protocol
 
 from aiolimiter import AsyncLimiter
@@ -41,7 +42,10 @@ class Context(MemoryContext):
     branch = Field()
     step = Field(default=0)
 
-    message_id = Field()
+    is_finished = Field(default=False)
+
+    admin_mid = Field()
+    user_mid = Field()
 
     group_id = Field()
     group = Field()
@@ -54,7 +58,11 @@ class Context(MemoryContext):
 
     texts = Field(factory=deque)
     options = Field(factory=deque)
+
     answers = Field(factory=list)
+    points = Field(default=0)
+
+    feedback = Field(default="")
 
     def __init__(self, chat_id: int | None, user_id: int | None, **kwargs) -> None:
         super().__init__(chat_id, user_id, **kwargs)
@@ -74,8 +82,28 @@ class Context(MemoryContext):
         return self.user_id in ADMINS
 
     @property
-    def state(self) -> str | None:
+    def stage(self) -> str | None:
         return self.branch and f"{self.branch.__name__}{self.step}"
+
+    @property
+    def login(self) -> str:
+        return f"Идентификатор: {self.user_id}\nПользователь: {self.full_name}"
+
+    @property
+    def result(self) -> str:
+        return (
+            f"Групппа: {self.group}\n"
+            f"Студент: {self.student}\n"
+            f"Тест: {self.test}\n"
+            f"Дата: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+            f"Результат: {self.points} из {len(self.answers)}\n"
+            f"\n"
+            f"{self.feedback}"
+        ).strip()
+
+    @property
+    def logout(self) -> str:
+        return f"Статус: {'Завершено' if self.is_finished else 'Прервано'}\n{self.login}\n{self.result}"
 
     def next_state(self) -> None:
         self.step += 1
